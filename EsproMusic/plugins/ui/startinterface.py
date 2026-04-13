@@ -1,5 +1,6 @@
 import time
 import asyncio
+import sys
 
 from pyrogram import filters
 from pyrogram.enums import ChatType
@@ -23,6 +24,9 @@ from EsproMusic.utils.formatters import get_readable_time
 from EsproMusic.utils.inline import help_pannel, private_panel, start_panel
 from config import BANNED_USERS
 from strings import get_string
+
+BOT_VERSION = "2.0"
+STICKER_ID = "CAACAgUAAxkBAAEQ6t1p3U33g3t-SRefrEYOKU1_S05dEgACuAIAAlB92VVdMD19GtktNDsE"
 
 
 # ===================== DM START =====================
@@ -89,7 +93,6 @@ async def start_pm(client, message: Message, _):
     else:
         out = private_panel(_)
 
-        # 🔥 percentage loader
         msg = await message.reply_text("⚡ 0%")
 
         for i in range(0, 101, 10):
@@ -99,10 +102,7 @@ async def start_pm(client, message: Message, _):
 
         await msg.delete()
 
-        # 🔥 sticker (DM only)
-        sticker = await message.reply_sticker(
-            "CAACAgUAAxkBAAEBXXXXYwABCD1234567890"
-        )
+        sticker = await message.reply_sticker(STICKER_ID)
 
         await asyncio.sleep(2)
 
@@ -111,7 +111,6 @@ async def start_pm(client, message: Message, _):
         except:
             pass
 
-        # 🎯 final UI
         await message.reply_photo(
             photo=config.START_IMG_URL,
             has_spoiler=True,
@@ -127,7 +126,6 @@ async def start_pm(client, message: Message, _):
 async def start_gp(client, message: Message, _):
     await add_served_chat(message.chat.id)
 
-    # 🔥 group loader (no sticker spam)
     msg = await message.reply_text("⚡ 0%")
 
     for i in range(0, 101, 20):
@@ -137,13 +135,29 @@ async def start_gp(client, message: Message, _):
 
     await msg.delete()
 
+    # 🔥 group sticker added
+    sticker = await message.reply_sticker(STICKER_ID)
+
+    await asyncio.sleep(2)
+
+    try:
+        await sticker.delete()
+    except:
+        pass
+
     out = start_panel(_)
     uptime = int(time.time() - _boot_)
+    python_version = sys.version.split()[0]
 
     await message.reply_photo(
         photo=config.START_IMG_URL,
         has_spoiler=True,
-        caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
+        caption=_["start_1"].format(
+            app.mention,
+            get_readable_time(uptime),
+            python_version,
+            BOT_VERSION
+        ),
         reply_markup=InlineKeyboardMarkup(out),
     )
 
