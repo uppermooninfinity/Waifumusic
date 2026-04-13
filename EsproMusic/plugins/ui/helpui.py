@@ -1,4 +1,3 @@
-import asyncio
 from typing import Union
 
 from pyrogram import filters, types
@@ -17,29 +16,9 @@ from config import BANNED_USERS, START_IMG_URL, SUPPORT_CHAT
 from strings import get_string, helpers
 
 
-START_STICKER = "CAACAgUAAxkBAAEB..."
-
-
-async def intro_flow(message: Message):
-    opening = await message.reply("✨ ʜᴇʟᴘ & ᴜᴛɪʟɪᴛɪᴇs ʟᴏᴀᴅɪɴɢ...")
-    await asyncio.sleep(2)
-    try:
-        await opening.delete()
-    except:
-        pass
-
-    try:
-        st = await message.reply_sticker(START_STICKER)
-        await asyncio.sleep(2)
-        await st.delete()
-    except:
-        pass
-
-
+# ================= PRIVATE =================
 @app.on_message(filters.command(["help", "utils"]) & filters.private & ~BANNED_USERS)
-async def help_private(client, message: Message):
-
-    await intro_flow(message)
+async def helper_private(client, message: Message):
 
     language = await get_lang(message.chat.id)
     _ = get_string(language)
@@ -53,23 +32,22 @@ async def help_private(client, message: Message):
     )
 
 
+# ================= GROUP =================
 @app.on_message(filters.command(["help", "utils"]) & filters.group & ~BANNED_USERS)
 @LanguageStart
 async def help_group(client, message: Message, _):
-
-    await intro_flow(message)
 
     keyboard = InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "➜ ᴏᴘᴇɴ ɪɴ ᴅᴍ",
+                    text="➜ ᴏᴘᴇɴ ɪɴ ᴅᴍ",
                     url=f"https://t.me/{app.username}?start=help",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "➜ ᴏᴘᴇɴ ʜᴇʀᴇ",
+                    text="➜ ᴏᴘᴇɴ ʜᴇʀᴇ",
                     callback_data="open_help_here",
                 )
             ],
@@ -83,55 +61,57 @@ async def help_group(client, message: Message, _):
     )
 
 
-# 🔥 FIXED OPEN HERE
+# ================= OPEN HERE (FIXED) =================
 @app.on_callback_query(filters.regex("^open_help_here$") & ~BANNED_USERS)
 @languageCB
-async def open_here(client, q, _):
+async def open_help_here(client, query, _):
 
     try:
-        await q.answer()
+        await query.answer()
     except:
         pass
 
     keyboard = help_pannel(_, True)
+    msg = query.message
 
-    try:
-        # if message is photo → edit caption
-        await q.message.edit_caption(
+    if msg.photo:
+        await msg.edit_caption(
             caption=_["help_1"].format(SUPPORT_CHAT),
             reply_markup=keyboard,
         )
-    except:
-        # fallback if it's text
-        await q.message.edit_text(
+    else:
+        await msg.edit_text(
             _["help_1"].format(SUPPORT_CHAT),
             reply_markup=keyboard,
         )
 
 
+# ================= BACK =================
 @app.on_callback_query(filters.regex("settings_back_helper") & ~BANNED_USERS)
 @languageCB
-async def back_help(client, q, _):
+async def back_help(client, query, _):
 
     try:
-        await q.answer()
+        await query.answer()
     except:
         pass
 
     keyboard = help_pannel(_, True)
+    msg = query.message
 
-    try:
-        await q.message.edit_caption(
+    if msg.photo:
+        await msg.edit_caption(
             caption=_["help_1"].format(SUPPORT_CHAT),
             reply_markup=keyboard,
         )
-    except:
-        await q.message.edit_text(
+    else:
+        await msg.edit_text(
             _["help_1"].format(SUPPORT_CHAT),
             reply_markup=keyboard,
         )
 
 
+# ================= HELP CALLBACK =================
 @app.on_callback_query(filters.regex("help_callback") & ~BANNED_USERS)
 @languageCB
 async def helper_cb(client, CallbackQuery, _):
@@ -142,6 +122,7 @@ async def helper_cb(client, CallbackQuery, _):
         pass
 
     callback_data = CallbackQuery.data.strip()
+
     if len(callback_data.split(None, 1)) < 2:
         return
 
@@ -184,12 +165,12 @@ async def helper_cb(client, CallbackQuery, _):
         else:
             return
 
-        try:
+        if CallbackQuery.message.photo:
             await CallbackQuery.edit_message_caption(
                 caption=txt,
                 reply_markup=keyboard
             )
-        except:
+        else:
             await CallbackQuery.edit_message_text(
                 txt,
                 reply_markup=keyboard
