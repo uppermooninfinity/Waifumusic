@@ -25,6 +25,8 @@ from config import BANNED_USERS
 from strings import get_string
 
 
+# ===================== DM START =====================
+
 @app.on_message(filters.command(["start"]) & filters.private & ~BANNED_USERS)
 @LanguageStart
 async def start_pm(client, message: Message, _):
@@ -33,7 +35,7 @@ async def start_pm(client, message: Message, _):
     if len(message.text.split()) > 1:
         name = message.text.split(None, 1)[1]
 
-        if name[0:4] == "help":
+        if name.startswith("help"):
             keyboard = help_pannel(_)
             return await message.reply_photo(
                 photo=config.START_IMG_URL,
@@ -42,13 +44,13 @@ async def start_pm(client, message: Message, _):
                 has_spoiler=True,
             )
 
-        if name[0:3] == "sud":
+        if name.startswith("sud"):
             await sudoers_list(client=client, message=message, _=_)
             return
 
-        if name[0:3] == "inf":
+        if name.startswith("inf"):
             m = await message.reply_text("🔎")
-            query = (str(name)).replace("info_", "", 1)
+            query = name.replace("info_", "", 1)
             query = f"https://www.youtube.com/watch?v={query}"
             results = VideosSearch(query, limit=1)
 
@@ -76,7 +78,6 @@ async def start_pm(client, message: Message, _):
             )
 
             await m.delete()
-
             return await app.send_photo(
                 chat_id=message.chat.id,
                 photo=thumbnail,
@@ -88,7 +89,7 @@ async def start_pm(client, message: Message, _):
     else:
         out = private_panel(_)
 
-        # 💀 percentage loader animation
+        # 🔥 percentage loader
         msg = await message.reply_text("⚡ 0%")
 
         for i in range(0, 101, 10):
@@ -98,9 +99,9 @@ async def start_pm(client, message: Message, _):
 
         await msg.delete()
 
-        # 🔥 sticker effect
+        # 🔥 sticker (DM only)
         sticker = await message.reply_sticker(
-            "CAACAgUAAxkBAAEQ6t1p3U33g3t-SRefrEYOKU1_S05dEgACuAIAAlB92VVdMD19GtktNDsE"
+            "CAACAgUAAxkBAAEBXXXXYwABCD1234567890"
         )
 
         await asyncio.sleep(2)
@@ -119,9 +120,23 @@ async def start_pm(client, message: Message, _):
         )
 
 
+# ===================== GROUP START =====================
+
 @app.on_message(filters.command(["start"]) & filters.group & ~BANNED_USERS)
 @LanguageStart
 async def start_gp(client, message: Message, _):
+    await add_served_chat(message.chat.id)
+
+    # 🔥 group loader (no sticker spam)
+    msg = await message.reply_text("⚡ 0%")
+
+    for i in range(0, 101, 20):
+        bar = "█" * (i // 10) + "░" * (10 - (i // 10))
+        await msg.edit_text(f"⚡ [{bar}] {i}%")
+        await asyncio.sleep(0.3)
+
+    await msg.delete()
+
     out = start_panel(_)
     uptime = int(time.time() - _boot_)
 
@@ -132,8 +147,8 @@ async def start_gp(client, message: Message, _):
         reply_markup=InlineKeyboardMarkup(out),
     )
 
-    return await add_served_chat(message.chat.id)
 
+# ===================== WELCOME =====================
 
 @app.on_message(filters.new_chat_members, group=-1)
 async def welcome(client, message: Message):
