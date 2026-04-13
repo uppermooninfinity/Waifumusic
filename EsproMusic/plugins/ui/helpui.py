@@ -1,6 +1,4 @@
-from typing import Union
-
-from pyrogram import filters, types
+from pyrogram import filters
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -8,27 +6,68 @@ from pyrogram.types import (
 )
 
 from EsproMusic import app
-from EsproMusic.utils import help_pannel
 from EsproMusic.utils.database import get_lang
 from EsproMusic.utils.decorators.language import LanguageStart, languageCB
-from EsproMusic.utils.inline.help import help_back_markup
 from config import BANNED_USERS, START_IMG_URL, SUPPORT_CHAT
 from strings import get_string, helpers
 
 
+# 🔥 INLINE PANEL DIRECT (NO IMPORT)
+def build_help_panel(_):
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(_["H_B_1"], callback_data="help_callback hb1"),
+                InlineKeyboardButton(_["H_B_2"], callback_data="help_callback hb2"),
+                InlineKeyboardButton(_["H_B_3"], callback_data="help_callback hb3"),
+            ],
+            [
+                InlineKeyboardButton(_["H_B_4"], callback_data="help_callback hb4"),
+                InlineKeyboardButton(_["H_B_5"], callback_data="help_callback hb5"),
+                InlineKeyboardButton(_["H_B_6"], callback_data="help_callback hb6"),
+            ],
+            [
+                InlineKeyboardButton(_["H_B_7"], callback_data="help_callback hb7"),
+                InlineKeyboardButton(_["H_B_8"], callback_data="help_callback hb8"),
+                InlineKeyboardButton(_["H_B_9"], callback_data="help_callback hb9"),
+            ],
+            [
+                InlineKeyboardButton(_["H_B_10"], callback_data="help_callback hb10"),
+                InlineKeyboardButton(_["H_B_11"], callback_data="help_callback hb11"),
+                InlineKeyboardButton(_["H_B_12"], callback_data="help_callback hb12"),
+            ],
+            [
+                InlineKeyboardButton(_["H_B_13"], callback_data="help_callback hb13"),
+                InlineKeyboardButton(_["H_B_14"], callback_data="help_callback hb14"),
+                InlineKeyboardButton(_["H_B_15"], callback_data="help_callback hb15"),
+            ],
+            [
+                InlineKeyboardButton(_["H_B_16"], callback_data="help_callback hb16"),
+            ],
+            [
+                InlineKeyboardButton(_["CLOSE_BUTTON"], callback_data="close"),
+            ],
+        ]
+    )
+
+
+def back_panel(_):
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(_["BACK_BUTTON"], callback_data="back_help")]]
+    )
+
+
 # ================= PRIVATE =================
 @app.on_message(filters.command(["help", "utils"]) & filters.private & ~BANNED_USERS)
-async def helper_private(client, message: Message):
+async def help_private(client, message: Message):
 
     language = await get_lang(message.chat.id)
     _ = get_string(language)
 
-    keyboard = help_pannel(_)
-
     await message.reply_photo(
         photo=START_IMG_URL,
         caption=_["help_1"].format(SUPPORT_CHAT),
-        reply_markup=keyboard,
+        reply_markup=build_help_panel(_),
     )
 
 
@@ -41,14 +80,14 @@ async def help_group(client, message: Message, _):
         [
             [
                 InlineKeyboardButton(
-                    text="➜ ᴏᴘᴇɴ ɪɴ ᴅᴍ",
+                    "➜ ᴏᴘᴇɴ ɪɴ ᴅᴍ",
                     url=f"https://t.me/{app.username}?start=help",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="➜ ᴏᴘᴇɴ ʜᴇʀᴇ",
-                    callback_data="open_help_here",
+                    "➜ ᴏᴘᴇɴ ʜᴇʀᴇ",
+                    callback_data="open_here",
                 )
             ],
         ]
@@ -61,120 +100,82 @@ async def help_group(client, message: Message, _):
     )
 
 
-# ================= OPEN HERE (FIXED) =================
-@app.on_callback_query(filters.regex("^open_help_here$") & ~BANNED_USERS)
+# ================= OPEN HERE (INLINE SAME FILE) =================
+@app.on_callback_query(filters.regex("^open_here$"))
 @languageCB
-async def open_help_here(client, query, _):
+async def open_here(client, query, _):
 
-    try:
-        await query.answer()
-    except:
-        pass
+    await query.answer()
 
-    keyboard = help_pannel(_, True)
     msg = query.message
 
     if msg.photo:
         await msg.edit_caption(
             caption=_["help_1"].format(SUPPORT_CHAT),
-            reply_markup=keyboard,
+            reply_markup=build_help_panel(_),
         )
     else:
         await msg.edit_text(
             _["help_1"].format(SUPPORT_CHAT),
-            reply_markup=keyboard,
+            reply_markup=build_help_panel(_),
         )
 
 
 # ================= BACK =================
-@app.on_callback_query(filters.regex("settings_back_helper") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex("^back_help$"))
 @languageCB
 async def back_help(client, query, _):
 
-    try:
-        await query.answer()
-    except:
-        pass
+    await query.answer()
 
-    keyboard = help_pannel(_, True)
     msg = query.message
 
     if msg.photo:
         await msg.edit_caption(
             caption=_["help_1"].format(SUPPORT_CHAT),
-            reply_markup=keyboard,
+            reply_markup=build_help_panel(_),
         )
     else:
         await msg.edit_text(
             _["help_1"].format(SUPPORT_CHAT),
-            reply_markup=keyboard,
+            reply_markup=build_help_panel(_),
         )
 
 
 # ================= HELP CALLBACK =================
-@app.on_callback_query(filters.regex("help_callback") & ~BANNED_USERS)
+@app.on_callback_query(filters.regex("help_callback"))
 @languageCB
-async def helper_cb(client, CallbackQuery, _):
+async def helper_cb(client, query, _):
 
-    try:
-        await CallbackQuery.answer()
-    except:
-        pass
+    await query.answer()
 
-    callback_data = CallbackQuery.data.strip()
+    cb = query.data.split()[1]
+    keyboard = back_panel(_)
 
-    if len(callback_data.split(None, 1)) < 2:
+    data = {
+        "hb1": helpers.HELP_1,
+        "hb2": helpers.HELP_2,
+        "hb3": helpers.HELP_3,
+        "hb4": helpers.HELP_4,
+        "hb5": helpers.HELP_5,
+        "hb6": helpers.HELP_6,
+        "hb7": helpers.HELP_7,
+        "hb8": helpers.HELP_8,
+        "hb9": helpers.HELP_9,
+        "hb10": helpers.HELP_10,
+        "hb11": helpers.HELP_11,
+        "hb12": helpers.HELP_12,
+        "hb13": helpers.HELP_13,
+        "hb14": helpers.HELP_14,
+        "hb15": helpers.HELP_15,
+        "hb16": helpers.HELP_16,
+    }
+
+    text = data.get(cb)
+    if not text:
         return
 
-    cb = callback_data.split(None, 1)[1]
-    keyboard = help_back_markup(_)
-
-    try:
-        if cb == "hb1":
-            txt = helpers.HELP_1
-        elif cb == "hb2":
-            txt = helpers.HELP_2
-        elif cb == "hb3":
-            txt = helpers.HELP_3
-        elif cb == "hb4":
-            txt = helpers.HELP_4
-        elif cb == "hb5":
-            txt = helpers.HELP_5
-        elif cb == "hb6":
-            txt = helpers.HELP_6
-        elif cb == "hb7":
-            txt = helpers.HELP_7
-        elif cb == "hb8":
-            txt = helpers.HELP_8
-        elif cb == "hb9":
-            txt = helpers.HELP_9
-        elif cb == "hb10":
-            txt = helpers.HELP_10
-        elif cb == "hb11":
-            txt = helpers.HELP_11
-        elif cb == "hb12":
-            txt = helpers.HELP_12
-        elif cb == "hb13":
-            txt = helpers.HELP_13
-        elif cb == "hb14":
-            txt = helpers.HELP_14
-        elif cb == "hb15":
-            txt = helpers.HELP_15
-        elif cb == "hb16":
-            txt = helpers.HELP_16
-        else:
-            return
-
-        if CallbackQuery.message.photo:
-            await CallbackQuery.edit_message_caption(
-                caption=txt,
-                reply_markup=keyboard
-            )
-        else:
-            await CallbackQuery.edit_message_text(
-                txt,
-                reply_markup=keyboard
-            )
-
-    except:
-        pass
+    if query.message.photo:
+        await query.message.edit_caption(text, reply_markup=keyboard)
+    else:
+        await query.message.edit_text(text, reply_markup=keyboard)
