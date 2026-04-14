@@ -26,23 +26,6 @@ def auto_title(text: str) -> str:
     return text[:30].strip().title()
 
 
-async def progress(current, total, msg, start):
-    percent = int(current * 100 / total)
-    elapsed = time.time() - start
-    speed = current / elapsed if elapsed > 0 else 0
-
-    bar = "█" * (percent // 10) + "░" * (10 - percent // 10)
-
-    try:
-        await msg.edit(
-            f"📤 ᴜᴘʟᴏᴀᴅɪɴɢ...\n"
-            f"[{bar}] {percent}%\n"
-            f"⚡ {speed/1024:.2f} KB/s"
-        )
-    except:
-        pass
-
-
 def compress_image(path: str):
     try:
         img = Image.open(path)
@@ -54,6 +37,41 @@ def compress_image(path: str):
         return path
 
 
+def safe_upload(path: str) -> str:
+    try:
+        res = telegraph.upload_file(path)
+
+        if isinstance(res, list) and len(res) > 0:
+            item = res[0]
+
+            if isinstance(item, dict):
+                return item.get("src", "")
+
+            return str(item)
+
+        return ""
+
+    except Exception:
+        return ""
+
+
+async def progress(current, total, msg, start):
+    try:
+        percent = int(current * 100 / total)
+        elapsed = time.time() - start
+        speed = current / elapsed if elapsed > 0 else 0
+
+        bar = "█" * (percent // 10) + "░" * (10 - percent // 10)
+
+        await msg.edit(
+            f"📤 ᴜᴘʟᴏᴀᴅɪɴɢ...\n"
+            f"[{bar}] {percent}%\n"
+            f"⚡ {speed/1024:.2f} KB/s"
+        )
+    except:
+        pass
+
+
 @app.on_message(filters.command("tgm"))
 async def tgm_handler(client, message: Message):
 
@@ -61,12 +79,11 @@ async def tgm_handler(client, message: Message):
         return await message.reply_text("❌ ʀᴇᴘʟʏ ᴛᴏ ᴍᴇᴅɪᴀ")
 
     media = message.reply_to_message
-    status = await message.reply_text("⚡ sᴛᴀʀᴛɪɴɢ ᴜᴘʟᴏᴀᴅ...")
+    status = await message.reply_text("⚡ sᴛᴀʀᴛɪɴɢ...")
 
     files = []
 
     try:
-        # multiple media support
         if media.photo or media.video or media.document:
             files.append(await media.download())
 
@@ -76,35 +93,32 @@ async def tgm_handler(client, message: Message):
                 if m.photo or m.video or m.document:
                     files.append(await m.download())
 
-        html_content = ""
+        html = ""
         start = time.time()
 
-        for file_path in files:
+        for i, file_path in enumerate(files, start=1):
+
             if file_path.endswith((".jpg", ".jpeg", ".png")):
                 file_path = compress_image(file_path)
 
-            await progress(len(files), len(files), status, start)
+            await progress(i, len(files), status, start)
 
-            upload = telegraph.upload_file(file_path)
+            src = safe_upload(file_path)
 
-            if isinstance(upload, list) and upload:
-                path = upload[0]
-                if isinstance(path, dict):
-                    path = path.get("src", "")
-
-                html_content += f'<img src="https://telegra.ph{path}"/><br>'
+            if src:
+                html += f'<img src="https://telegra.ph{src}"/><br>'
 
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-        if not html_content:
+        if not html:
             return await status.edit("❌ ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ")
 
         title = auto_title(media.caption or "Espro Music")
 
         page = telegraph.create_page(
             title=title,
-            html_content=html_content
+            html_content=html
         )
 
         link = "https://telegra.ph/" + page["path"]
@@ -142,7 +156,7 @@ async def tgt_handler(client, message: Message):
     text = clean_text(text)
     title = auto_title(text)
 
-    status = await message.reply_text("⚡ ᴄʀᴇᴀᴛɪɴɢ ᴘᴀɢᴇ...")
+    status = await message.reply_text("⚡ ᴄʀᴇᴀᴛɪɴɢ...")
 
     try:
         page = telegraph.create_page(
@@ -162,7 +176,7 @@ async def tgt_handler(client, message: Message):
         )
 
         await status.edit(
-            "📝 ᴘᴀɢᴇ ᴄʀᴇᴀᴛᴇᴅ\n\n"
+            "📝 ᴘᴀɢᴇ ʀᴇᴀᴅʏ\n\n"
             f"🔗 {link}",
             reply_markup=buttons
         )
