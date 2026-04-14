@@ -1,19 +1,11 @@
 import os
 import time
+import requests
 from PIL import Image
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
-from telegraph import Telegraph
 from EsproMusic import app
-
-
-telegraph = Telegraph()
-
-try:
-    telegraph.create_account(short_name="EsproMusic")
-except Exception:
-    pass
-
+from pyrogram.enums import ButtonStyle
 
 def clean_text(text: str) -> str:
     return text.replace("<", "").replace(">", "").replace("&", "and")
@@ -36,18 +28,19 @@ def compress_image(path: str):
         return path
 
 
-def safe_upload(path: str) -> str:
+def telegraph_upload(path: str) -> str:
     try:
         with open(path, "rb") as f:
-            res = telegraph.upload_file(f)
+            r = requests.post(
+                "https://telegra.ph/upload",
+                files={"file": f},
+                timeout=20
+            )
 
-        if isinstance(res, list) and len(res) > 0:
-            item = res[0]
+        data = r.json()
 
-            if isinstance(item, dict):
-                return item.get("src", "")
-
-            return str(item)
+        if isinstance(data, list) and len(data) > 0:
+            return data[0].get("src", "")
 
         return ""
 
@@ -59,10 +52,10 @@ def safe_upload(path: str) -> str:
 async def tgm_handler(client, message: Message):
 
     if not message.reply_to_message:
-        return await message.reply_text("❌ ʀᴇᴘʟʏ ᴍɪssɪɴɢ")
+        return await message.reply_text("❌ ʀᴇᴘʟʏ ᴛᴏ ᴍᴇᴅɪᴀ")
 
     media = message.reply_to_message
-    status = await message.reply_text("⚡ sᴛᴀʀᴛɪɴɢ ᴜᴘʟᴏᴀᴅ...")
+    status = await message.reply_text("⚡ ᴘʀᴏᴄᴇssɪɴɢ...")
 
     files = []
 
@@ -71,7 +64,7 @@ async def tgm_handler(client, message: Message):
             path = await media.download()
 
             if os.path.getsize(path) > 4 * 1024 * 1024:
-                return await status.edit("❌ ғɪʟᴇ ᴛᴏᴏ ʙɪɢ (ᴍᴀx 4ᴍʙ)")
+                return await status.edit("❌ ғɪʟᴇ ᴛᴏᴏ ʙɪɢ (4ᴍʙ max)")
 
             files.append(path)
 
@@ -85,10 +78,8 @@ async def tgm_handler(client, message: Message):
                 if m.photo or m.document:
                     path = await m.download()
 
-                    if os.path.getsize(path) > 4 * 1024 * 1024:
-                        continue
-
-                    files.append(path)
+                    if os.path.getsize(path) <= 4 * 1024 * 1024:
+                        files.append(path)
 
         if not files:
             return await status.edit("❌ ɴᴏ ᴠᴀʟɪᴅ ғɪʟᴇs")
@@ -100,7 +91,7 @@ async def tgm_handler(client, message: Message):
             if file_path.endswith((".jpg", ".jpeg", ".png")):
                 file_path = compress_image(file_path)
 
-            src = safe_upload(file_path)
+            src = telegraph_upload(file_path)
 
             if src:
                 html += f'<img src="https://telegra.ph{src}"/><br>'
@@ -113,18 +104,34 @@ async def tgm_handler(client, message: Message):
 
         title = auto_title(media.caption or "Espro Music")
 
-        page = telegraph.create_page(
-            title=title,
-            html_content=html
+        page_data = {
+            "title": title,
+            "author_name": "Espro Music",
+            "content": [[
+                {
+                    "tag": "p",
+                    "children": [html]
+                }
+            ]]
+        }
+
+        r = requests.post(
+            "https://telegra.ph/createPage",
+            data=page_data
         )
 
-        link = "https://telegra.ph/" + page["path"]
+        result = r.json()
+
+        if not result.get("ok"):
+            return await status.edit("❌ ᴘᴀɢᴇ ᴄʀᴇᴀᴛᴇᴅ ғᴀɪʟᴇᴅ")
+
+        link = "https://telegra.ph/" + result["result"]["path"]
 
         buttons = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("🔗 ᴏᴘᴇɴ", url=link),
-                    InlineKeyboardButton("📋 ᴄᴏᴘʏ", url=link),
+                    InlineKeyboardButton("🔗 ᴏᴘᴇɴ", url=link, style=ButtonStyle.SUCCESS),
+                    InlineKeyboardButton("📋 ᴄᴏᴘʏ", url=link, style=ButtonStyle.DANGER),
                 ]
             ]
         )
@@ -156,12 +163,28 @@ async def tgt_handler(client, message: Message):
     status = await message.reply_text("⚡ ᴄʀᴇᴀᴛɪɴɢ ᴘᴀɢᴇ...")
 
     try:
-        page = telegraph.create_page(
-            title=title,
-            html_content=f"<p>{text}</p>"
+        data = {
+            "title": title,
+            "author_name": "Espro Music",
+            "content": [[
+                {
+                    "tag": "p",
+                    "children": [text]
+                }
+            ]]
+        }
+
+        r = requests.post(
+            "https://telegra.ph/createPage",
+            data=data
         )
 
-        link = "https://telegra.ph/" + page["path"]
+        result = r.json()
+
+        if not result.get("ok"):
+            return await status.edit("❌ ᴘᴀɢᴇ ғᴀɪʟᴇᴅ")
+
+        link = "https://telegra.ph/" + result["result"]["path"]
 
         buttons = InlineKeyboardMarkup(
             [
