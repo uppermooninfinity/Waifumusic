@@ -24,60 +24,32 @@ def upload_catbox(path: str) -> str:
         return ""
 
 
-def upload_telegraph(path: str) -> str:
-    try:
-        with open(path, "rb") as f:
-            r = requests.post(
-                "https://telegra.ph/upload",
-                files={"file": f},
-                timeout=20
-            )
-
-        data = r.json()
-
-        if isinstance(data, list) and "src" in data[0]:
-            return "https://telegra.ph" + data[0]["src"]
-
-        return ""
-
-    except Exception:
-        return ""
-
-
-def smart_upload(path: str) -> str:
-    link = upload_catbox(path)
-    if link:
-        return link
-
-    return upload_telegraph(path)
-
-
 @app.on_message(filters.command("tgm"))
 async def tgm_handler(client, message: Message):
 
     if not message.reply_to_message:
         return await message.reply_text("❌ ʀᴇᴘʟʏ ᴛᴏ ᴍᴇᴅɪᴀ")
 
-    reply = message.reply_to_message
+    media = message.reply_to_message
 
-    if not (reply.photo or reply.document):
-        return await message.reply_text("❌ ᴏɴʟʏ ɪᴍᴀɢᴇ / ғɪʟᴇ sᴜᴘᴘᴏʀᴛᴇᴅ")
+    if not (media.photo or media.document or media.video):
+        return await message.reply_text("❌ ᴏɴʟʏ ᴍᴇᴅɪᴀ sᴜᴘᴘᴏʀᴛᴇᴅ")
 
     status = await message.reply_text("⚡ ᴜᴘʟᴏᴀᴅɪɴɢ...")
 
     try:
-        path = await reply.download()
+        path = await media.download()
 
         if os.path.getsize(path) > 10 * 1024 * 1024:
-            return await status.edit("❌ ғɪʟᴇ ᴛᴏᴏ ʙɪɢ")
+            return await status.edit("❌ ғɪʟᴇ ᴛᴏᴏ ʙɪɢ (10MB max)")
 
-        link = smart_upload(path)
-
-        if not link:
-            return await status.edit("❌ ᴀʟʟ ᴜᴘʟᴏᴀᴅ ᴍᴇᴛʜᴏᴅs ғᴀɪʟᴇᴅ")
+        link = upload_catbox(path)
 
         if os.path.exists(path):
             os.remove(path)
+
+        if not link:
+            return await status.edit("❌ ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ")
 
         buttons = InlineKeyboardMarkup(
             [
@@ -96,3 +68,32 @@ async def tgm_handler(client, message: Message):
 
     except Exception as e:
         await status.edit(f"❌ ᴇʀʀᴏʀ\n➤ {e}")
+
+
+@app.on_message(filters.command("tgt"))
+async def tgt_handler(client, message: Message):
+
+    if not message.reply_to_message:
+        return await message.reply_text("❌ ʀᴇᴘʟʏ ᴛᴏ ᴛᴇxᴛ")
+
+    text = message.reply_to_message.text or message.reply_to_message.caption
+
+    if not text:
+        return await message.reply_text("❌ ɴᴏ ᴛᴇxᴛ ғᴏᴜɴᴅ")
+
+    link = "https://telegra.ph/removed-system"
+
+    buttons = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("📋 ᴄᴏᴘʏ ᴛᴇxᴛ", callback_data="copy_text", style=ButtonStyle.DANGER),
+            ]
+        ]
+    )
+
+    await message.reply_text(
+        "📝 ᴛᴇxᴛ ʀᴇᴀᴅʏ\n\n"
+        f"{text}\n\n"
+        "⚡ ɴᴏ ᴛᴇʟᴇɢʀᴀᴘʜ ᴜsᴇᴅ (sᴛᴀʙʟᴇ ᴍᴏᴅᴇ)",
+        reply_markup=buttons
+    )
