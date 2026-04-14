@@ -7,24 +7,16 @@ from EsproMusic import app
 couple_cache = {}
 
 
-ghalib_quotes = [
-    "💔 'Ishq par zor nahi, hai ye woh aatish Ghalib, jo lagaye na lage aur bujhaaye na bane.'",
-    "🌹 'Hazaron khwahishein aisi ke har khwahish pe dam nikle.'",
-    "💞 'Dil hi toh hai na sang-o-khisht, dard se bhar na aaye kyun.'",
-    "✨ 'Mohabbat mein nahi hai farq jeene aur marne ka.'",
-    "💔 'Ishq ne Ghalib nikamma kar diya, warna hum bhi aadmi the kaam ke.'"
-]
-
-love_quotes = [
-    "💖 Love is not found, it is built in silence.",
-    "🌙 Two souls, one universe, infinite emotions.",
-    "💞 When hearts align, distance disappears.",
-    "✨ You are my today and all of my tomorrows.",
-    "💘 Love is when silence becomes conversation."
+quotes = [
+    "💔 Ishq par zor nahi, Ghalib",
+    "🌹 Hazaron khwahishein aisi",
+    "💞 Love is when two souls become one",
+    "✨ Some hearts are destined to meet",
+    "💘 You are my today and all my tomorrows"
 ]
 
 
-def get_couples(users):
+def make_pairs(users):
     random.shuffle(users)
     pairs = []
 
@@ -32,24 +24,32 @@ def get_couples(users):
         pairs.append((users[i], users[i + 1]))
 
     if len(users) % 2 == 1:
-        pairs.append((users[-1], "💔 ɴᴏ ᴘᴀʀᴛɴᴇʀ"))
+        pairs.append((users[-1], None))
 
     return pairs
 
 
-def make_text(couple, quote):
-    a, b = couple
+def format_user(user):
+    if isinstance(user, str):
+        return user
+    return f"@{user}"
+
+
+def build_text(pair, quote):
+    a, b = pair
+
+    a = format_user(a)
+    b = "💔 ɴᴏ ᴘᴀʀᴛɴᴇʀ" if not b else format_user(b)
 
     return (
         "💞 ᴄᴏᴜᴘʟᴇ ɢᴇɴᴇʀᴀᴛᴏʀ 💞\n"
         "━━━━━━━━━━━━━━\n\n"
         f"👩‍❤️‍👨 {a}\n"
-        f"💍  +  💍\n"
+        f"💍 + 💍\n"
         f"{b}\n\n"
         "━━━━━━━━━━━━━━\n"
         f"{quote}\n"
-        "━━━━━━━━━━━━━━\n"
-        "💫 ʟᴏᴠᴇ ɪs ᴄʀᴇᴀᴛᴇᴅ ʜᴇʀᴇ 💫"
+        "━━━━━━━━━━━━━━"
     )
 
 
@@ -58,7 +58,7 @@ def buttons():
         [
             [
                 InlineKeyboardButton(
-                    "💘 ᴡᴀɴɴᴀ sᴇᴇ ɴᴇxᴛ ᴄᴏᴜᴘʟᴇ",
+                    "💘 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇ",
                     callback_data="next_couple"
                 )
             ]
@@ -73,32 +73,31 @@ async def couple_handler(client, message: Message):
 
     members = []
 
-    async for member in client.get_chat_members(chat_id):
-        if not member.user.is_bot:
-            members.append(member.user.first_name)
+    async for m in client.get_chat_members(chat_id):
+        if m.user and not m.user.is_bot:
+            members.append(m.user.username or m.user.first_name)
 
     if len(members) < 2:
-        return await message.reply_text("❌ ɴᴏᴛ ᴇɴᴏᴜɢʜ ᴍᴇᴍʙᴇʀs")
+        return await message.reply_text("❌ ɴᴏᴛ ᴇɴᴏᴜɢʜ ᴜsᴇʀs")
 
-    couples = get_couples(members)
+    pairs = make_pairs(members)
+
+    first_pair = random.choice(pairs)
 
     couple_cache[chat_id] = {
-        "couples": couples,
-        "last": None
+        "pairs": pairs,
+        "current": first_pair
     }
 
-    pair = random.choice(couples)
-    quote = random.choice(ghalib_quotes + love_quotes)
-
-    couple_cache[chat_id]["last"] = pair
+    quote = random.choice(quotes)
 
     await message.reply_text(
-        make_text(pair, quote),
+        build_text(first_pair, quote),
         reply_markup=buttons()
     )
 
 
-@app.on_callback_query(filters.regex("next_couple"))
+@app.on_callback_query(filters.regex("^next_couple$"))
 async def next_couple(client, callback_query):
 
     chat_id = callback_query.message.chat.id
@@ -110,16 +109,19 @@ async def next_couple(client, callback_query):
         )
 
     data = couple_cache[chat_id]
-    couples = data["couples"]
 
-    new_pair = random.choice(couples)
-    quote = random.choice(ghalib_quotes + love_quotes)
+    new_pair = random.choice(data["pairs"])
+    quote = random.choice(quotes)
 
-    data["last"] = new_pair
+    data["current"] = new_pair
 
-    await callback_query.message.edit_text(
-        make_text(new_pair, quote),
-        reply_markup=buttons()
-    )
+    try:
+        await callback_query.message.edit_text(
+            build_text(new_pair, quote),
+            reply_markup=buttons()
+        )
 
-    await callback_query.answer("💞 ɴᴇxᴛ ʟᴏᴠᴇ sᴛᴏʀʏ ɢᴇɴᴇʀᴀᴛᴇᴅ")
+        await callback_query.answer("💞 ɴᴇxᴛ ᴄᴏᴜᴘʟᴇ ɢᴇɴᴇʀᴀᴛᴇᴅ")
+
+    except Exception:
+        await callback_query.answer("⚠️ ᴇʀʀᴏʀ, ʀᴇᴛʀʏ", show_alert=True)
