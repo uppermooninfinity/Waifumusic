@@ -1,6 +1,5 @@
 import os
 import time
-import asyncio
 from PIL import Image
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
@@ -39,7 +38,8 @@ def compress_image(path: str):
 
 def safe_upload(path: str) -> str:
     try:
-        res = telegraph.upload_file(path)
+        with open(path, "rb") as f:
+            res = telegraph.upload_file(f)
 
         if isinstance(res, list) and len(res) > 0:
             item = res[0]
@@ -55,53 +55,50 @@ def safe_upload(path: str) -> str:
         return ""
 
 
-async def progress(current, total, msg, start):
-    try:
-        percent = int(current * 100 / total)
-        elapsed = time.time() - start
-        speed = current / elapsed if elapsed > 0 else 0
-
-        bar = "█" * (percent // 10) + "░" * (10 - percent // 10)
-
-        await msg.edit(
-            f"📤 ᴜᴘʟᴏᴀᴅɪɴɢ...\n"
-            f"[{bar}] {percent}%\n"
-            f"⚡ {speed/1024:.2f} KB/s"
-        )
-    except:
-        pass
-
-
 @app.on_message(filters.command("tgm"))
 async def tgm_handler(client, message: Message):
 
     if not message.reply_to_message:
-        return await message.reply_text("❌ ʀᴇᴘʟʏ ᴛᴏ ᴍᴇᴅɪᴀ")
+        return await message.reply_text("❌ ʀᴇᴘʟʏ ᴍɪssɪɴɢ")
 
     media = message.reply_to_message
-    status = await message.reply_text("⚡ sᴛᴀʀᴛɪɴɢ...")
+    status = await message.reply_text("⚡ sᴛᴀʀᴛɪɴɢ ᴜᴘʟᴏᴀᴅ...")
 
     files = []
 
     try:
-        if media.photo or media.video or media.document:
-            files.append(await media.download())
+        if media.photo or media.document:
+            path = await media.download()
+
+            if os.path.getsize(path) > 4 * 1024 * 1024:
+                return await status.edit("❌ ғɪʟᴇ ᴛᴏᴏ ʙɪɢ (ᴍᴀx 4ᴍʙ)")
+
+            files.append(path)
+
+        elif media.video:
+            return await status.edit("❌ ᴠɪᴅᴇᴏ ɴᴏᴛ sᴜᴘᴘᴏʀᴛᴇᴅ")
 
         elif media.media_group_id:
             msgs = await client.get_media_group(message.chat.id, media.id)
+
             for m in msgs:
-                if m.photo or m.video or m.document:
-                    files.append(await m.download())
+                if m.photo or m.document:
+                    path = await m.download()
+
+                    if os.path.getsize(path) > 4 * 1024 * 1024:
+                        continue
+
+                    files.append(path)
+
+        if not files:
+            return await status.edit("❌ ɴᴏ ᴠᴀʟɪᴅ ғɪʟᴇs")
 
         html = ""
-        start = time.time()
 
-        for i, file_path in enumerate(files, start=1):
+        for file_path in files:
 
             if file_path.endswith((".jpg", ".jpeg", ".png")):
                 file_path = compress_image(file_path)
-
-            await progress(i, len(files), status, start)
 
             src = safe_upload(file_path)
 
@@ -156,7 +153,7 @@ async def tgt_handler(client, message: Message):
     text = clean_text(text)
     title = auto_title(text)
 
-    status = await message.reply_text("⚡ ᴄʀᴇᴀᴛɪɴɢ...")
+    status = await message.reply_text("⚡ ᴄʀᴇᴀᴛɪɴɢ ᴘᴀɢᴇ...")
 
     try:
         page = telegraph.create_page(
